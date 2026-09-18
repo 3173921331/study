@@ -2,16 +2,12 @@
 #include <thread>
 #include <mutex>
 #include <string>
+#include <memory>
 
-static std::once_flag once;
 // 全局只有一个对象，用的时候直接调用static对象，单例模式
 class Log
 {
 public:
-    Log() {};
-    Log(const Log &log) = delete;
-    Log &operator=(const Log &log) = delete;
-
     static Log &GetInstance()
     {
         // static Log log; // 懒汉模式
@@ -26,19 +22,27 @@ public:
 
     static void init()
     {
-        if (!log)
-            log = new Log;
+        log.reset(new Log());
     }
 
-    void PrintLog(std::string msg)
+    void PrintLog(const std::string &msg)
     {
+        std::lock_guard<std::mutex> lg(mtx);
         std::cout << __TIME__ << ' ' << msg << std::endl;
     }
 
 private:
-    static Log *log;
+    Log() = default;
+    Log(const Log &log) = delete;
+    Log &operator=(const Log &log) = delete;
+
+    static std::unique_ptr<Log> log;
+    static std::once_flag once;
+    static std::mutex mtx;
 };
-Log *Log::log = nullptr;
+std::unique_ptr<Log> Log::log = nullptr;
+std::once_flag Log::once;
+std::mutex Log::mtx;
 
 void print_error()
 {
@@ -55,3 +59,26 @@ int main()
 
     return 0;
 }
+
+// Meyer单例，C++11后
+//  class Log
+//  {
+//  public:
+//      Log(const Log &) = delete;
+//      Log &operator=(const Log &) = delete;
+//      static Log &GetInstance()
+//      {
+//          static Log obj;
+//          return obj;
+//      }
+//      void PrintLog(const std::string &msg)
+//      {
+//          std::lock_guard<std::mutex> lg(mtx);
+//          std::cout << msg << '\n';
+//      }
+
+// private:
+//     Log() = default;
+//     static std::mutex mtx;
+// };
+// std::mutex Log::mtx;
