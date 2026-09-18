@@ -20,16 +20,16 @@ PUBLIC struct ctrip_task
     int value;
 };
 
+// 线程池管理结构体，保存线程池全部状态信息
 struct ctrip_thread_info
 {
-    // 线程退出标志
-    int thread_running;
-    int thread_num;
-    int tasknum;
-    struct ctrip_task *tasks;
-    pthread_t *threadid;
-    pthread_mutex_t mutex;
-    pthread_cond_t cond;
+    int thread_running;       // 线程池运行标志：1运行，0停止，用来通知工作线程退出
+    int thread_num;           // 线程池内工作线程总数量
+    int tasknum;              // 当前任务队列中待执行的任务个数
+    struct ctrip_task *tasks; // 任务链表的头结点，存放等待执行的任务单向链表
+    pthread_t *threadid;      // 动态数组，存放所有工作线程的tid
+    pthread_mutex_t mutex;    // 互斥锁，保护任务队列的并发访问（增删任务、计数修改）
+    pthread_cond_t cond;      // 条件变量：任务队列为空时，工作线程阻塞等待新任务
 };
 
 /* 初始化线程池线程数目

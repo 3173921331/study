@@ -1,5 +1,5 @@
 /**
- *  线程池工具, ctrip_thread_pool.c
+ *  线程池工具, ctrip_thread_pool.c（修正后的代码）
  *  zhangyl 2018.03.23
  */
 
@@ -8,7 +8,6 @@
 #include <stdlib.h>
 
 struct ctrip_thread_info g_threadinfo;
-int thread_running = 0;
 
 void ctrip_init_thread_pool(int thread_num)
 {
@@ -22,7 +21,6 @@ void ctrip_init_thread_pool(int thread_num)
     g_threadinfo.thread_running = 1;
     g_threadinfo.tasknum = 0;
     g_threadinfo.tasks = NULL;
-    thread_running = 1;
 
     g_threadinfo.threadid = (pthread_t *)malloc(sizeof(pthread_t) * thread_num);
 
@@ -36,7 +34,6 @@ void ctrip_init_thread_pool(int thread_num)
 void ctrip_destroy_thread_pool()
 {
     g_threadinfo.thread_running = 0;
-    thread_running = 0;
     pthread_cond_broadcast(&g_threadinfo.cond);
 
     int i;
@@ -97,7 +94,7 @@ void *ctrip_thread_routine(void *thread_param)
 {
     printf("thread NO.%d start.\n", (int)pthread_self());
 
-    while (thread_running /*g_threadinfo.thread_running*/)
+    while (g_threadinfo.thread_running)
     {
         struct ctrip_task *current = NULL;
 
@@ -112,12 +109,9 @@ void *ctrip_thread_routine(void *thread_param)
             if (!g_threadinfo.thread_running)
                 break;
 
-            current = ctrip_thread_pool_retrieve_task();
-
-            if (current != NULL)
-                break;
         } // end inner-while-loop
 
+        current = ctrip_thread_pool_retrieve_task();
         pthread_mutex_unlock(&g_threadinfo.mutex);
 
         ctrip_thread_pool_do_task(current);
