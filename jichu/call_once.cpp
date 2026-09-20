@@ -16,6 +16,7 @@ public:
         // if (!log)
         //     log = new Log;
 
+        //保证多个线程中这个init函数只调用一次
         std::call_once(once, init);
         return *log;
     }
