@@ -5,6 +5,7 @@
 #include <queue>
 #include <vector>
 #include <functional>
+#include <future>
 
 class ThreadPool
 {
@@ -46,16 +47,23 @@ public:
     }
 
     template <class F, class... Args>
-    // 函数模板里面的右值引用，是万能引用，可以传入左值和右值
-    void enqueue(F &&f, Args &&...args)
+    auto enqueue(F &&f, Args &&...args) -> std::future<typename std::invoke_result<F, Args...>::type>
     {
-        // C++11forward，完美转发，用于维持表达式类型
-        std::function<void()> task = std::bind(std::forward<F>(f), std::forward<Args>(args)...);
+        using ResultType = typename std::invoke_result<F, Args...>::type;
+        // packaged_task放到堆上unique_ptr
+        auto task_ptr = std::make_shared<std::packaged_task<ResultType()>>(
+            [f = std::forward<F>(f), ... args = std::forward<Args>(args)]()
+            { return f(args...); });
+        auto future_result = task_ptr->get_future();
+
         {
             std::unique_lock<std::mutex> lock(mtx);
-            tasks.emplace(std::move(task));
+            // 移动捕获unique_ptr，lambda存入std::function<void()>
+            tasks.emplace([t = std::move(task_ptr)]()
+                          { (*t)(); });
         }
         condition.notify_one();
+        return future_result;
     }
 
 private:
@@ -73,12 +81,24 @@ std::mutex cmtx;
 int main()
 {
     ThreadPool pool(4);
+    std::vector<std::future<int>> futures;
+
     for (int i = 0; i < 10; i++)
     {
-        pool.enqueue([i]
-                     {
-                        std::unique_lock<std::mutex> lock(cmtx);
-                         std::cout << "task : " << i << " is runing" << std::endl;
-                         std::cout << "task : " << i << " is done" << std::endl; });
+        auto fut = pool.enqueue([i]
+                                {
+            std::unique_lock<std::mutex> lock(cmtx);
+            std::cout << "task : " << i << " is runing" << std::endl;
+            std::cout << "task : " << i << " is done" << std::endl;
+            return i; });
+        futures.push_back(std::move(fut));
     }
+    // 全部任务提交完毕，再等待结果
+    for (auto &f : futures)
+    {
+        int res = f.get();
+        std::unique_lock<std::mutex> lock(cmtx);
+        std::cout << res << '\n';
+    }
+    return 0;
 }
