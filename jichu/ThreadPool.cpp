@@ -47,13 +47,17 @@ public:
     }
 
     template <class F, class... Args>
-    auto enqueue(F &&f, Args &&...args) -> std::future<typename std::invoke_result<F, Args...>::type>
+    auto enqueue(F &&f, Args &&...args) -> std::future<std::invoke_result_t<F, Args...>>
     {
-        using ResultType = typename std::invoke_result<F, Args...>::type;
-        // packaged_task放到堆上unique_ptr
+        using ResultType = std::invoke_result_t<F, Args...>;
+        // packaged_task放到堆上shared_ptr
         auto task_ptr = std::make_shared<std::packaged_task<ResultType()>>(
-            [f = std::forward<F>(f), ... args = std::forward<Args>(args)]()
-            { return f(args...); });
+            [f = std::forward<F>(f), args_tuple = std::make_tuple(std::forward<Args>(args)...)]() mutable -> ResultType
+            {
+                return std::apply([&f](auto &&...args)
+                                  { return std::invoke(std::move(f), std::forward<decltype(args)>(args)...); }, std::move(args_tuple));
+            });
+
         auto future_result = task_ptr->get_future();
 
         {
