@@ -1,0 +1,33 @@
+cmake_minimum_required(VERSION 4.2.0)
+project(C_threadPool C)
+
+# 只收集库的源码，不要main.c！
+set(LIB_SRC threadPool.c)
+add_library(threadPoollib STATIC ${LIB_SRC})
+
+# 头文件路径，给库目标使用
+target_include_directories(threadPoollib
+    PUBLIC
+        ${PROJECT_SOURCE_DIR}
+)
+
+# 静态库链接 pthread
+target_link_libraries(threadPoollib PUBLIC pthread)
+
+# 设置静态库输出路径 lib/
+set_target_properties(threadPoollib
+    PROPERTIES
+        ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib
+)
+
+# 可执行程序，只传入main.c
+add_executable(main main.c)
+
+# 可执行程序链接静态库threadPoollib
+target_link_libraries(main PRIVATE threadPoollib)
+
+# exe输出到项目根目录
+set_target_properties(main
+    PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}
+)
