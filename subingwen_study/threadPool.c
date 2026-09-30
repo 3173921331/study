@@ -258,7 +258,7 @@ void *manager(void *arg)
 
         // 添加线程
         // 任务的个数>存活的线程个数 && 存活的线程数<最大线程数
-        if (queueSize > liveNum && liveNum < pool->maxNum)
+        if (queueSize > liveNum - busyNum && liveNum < pool->maxNum)
         {
             pthread_mutex_lock(&pool->mutexPool);
             int counter = 0;
